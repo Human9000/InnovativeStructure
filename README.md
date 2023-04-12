@@ -7,4 +7,4 @@
 5. DCSINet2d （-）
 ![image](https://user-images.githubusercontent.com/33023091/229284423-823a8a0a-1293-4227-94ff-a6a46fb1e1b5.png))
 6. MergeAttention (2023-4-4) ./mergeattention.py
-7. Dynamic full connection（2023-4-12）./dyfc.py
+7. Dynamic full connection（2023-4-12）./dyfc.py （已投）
