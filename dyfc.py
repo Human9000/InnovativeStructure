@@ -14,6 +14,7 @@ class DyFC(nn.Module):
         self.cin = cin
         self.cout = cout
         self.channel_dim = channel_dim
+
         self.attention = nn.Sequential( # 获取基向量注意力
             nn.Linear(cin*2, cin*k),
             nn.ReLU(),
@@ -51,7 +52,7 @@ class DyFC(nn.Module):
         return y
 
 
-dyfc = DyFC(12, 7, k=3, channel_dim=1)
+dyfc = DyFC(11, 7, k=3, channel_dim=2)
 x = torch.randn((3, 12, 11, 10))
 print(x.shape)
 y = dyfc(x)
