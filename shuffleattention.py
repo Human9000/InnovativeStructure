@@ -109,8 +109,8 @@ class SE_Block(nn.Module):
 
 if __name__ == '__main__':
     x = torch.randn(1, 128, 224, 224)
-    sa1 = ShuffleAttention(128, (3, 7))
-    sa2 = ShuffleAttention(128, (7, 3))
+    sa1 = SA_Block(128, (3, 7))
+    sa2 = SA_Block(128, (7, 3))
     conv = torch.nn.Conv2d(128, 128, (1, 1))
     se = SE_Block(128, )
     y = sa1(x)
