@@ -9,4 +9,4 @@
 6. MergeAttention (2023-4-4) ./mergeattention.py
 7. Dynamic full connection（2023-4-12）./dyfc.py （已投）
 8. MConv(2023-10-26) ./mconv.py
-9. ShuffleAttention (2023-11-23） ./channelshuffleattention.py
+9. ShuffleAttention (2023-11-23） ./shuffleattention.py
