@@ -26,8 +26,7 @@ class SA_Block(nn.Module):
                  ):
         super().__init__()
         dims = len(blocksize)
-        assert dims in [
-            1, 2, 3], 'SA_Block only supports from 1 to 3 dimensions'
+        assert dims in [1, 2, 3], 'SA_Block only supports from 1 to 3 dimensions'
         blocksize = torch.tensor(blocksize)
         Pool = [nn.AdaptiveAvgPool1d, nn.AdaptiveAvgPool2d,
                 nn.AdaptiveAvgPool3d][dims - 1]
@@ -81,7 +80,7 @@ class SA_Block(nn.Module):
     def forward(self, x):
         xp = self.pool(x)
         y = self.conv(xp)
-        return x * F.interpolate(y, x.shape[2:], mode=self.interpolate_mode, align_corners=False)
+        return x * self.interpolate(y, x.shape[2:])
 
 
 
