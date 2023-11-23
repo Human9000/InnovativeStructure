@@ -21,40 +21,39 @@ class ChannelShuffle(nn.Module):
 class SA_Block(nn.Module):
     def __init__(self,
                  cin,
-                 pool_size=[5, 5],
-                 ratio_1=16,
-                 ratio_2=4,
+                 blocksize=[5, 5],
+                 ratio=16, 
                  ):
         super().__init__()
-        dims = len(pool_size)
+        dims = len(blocksize)
         assert dims in [
             1, 2, 3], 'SA_Block only supports from 1 to 3 dimensions'
-        pool_size = torch.tensor(pool_size)
+        blocksize = torch.tensor(blocksize)
         Pool = [nn.AdaptiveAvgPool1d, nn.AdaptiveAvgPool2d,
                 nn.AdaptiveAvgPool3d][dims - 1]
         Conv = [nn.Conv1d, nn.Conv2d, nn.Conv3d][dims - 1]
         self.interpolate_mode = ['linear', 'bilinear', 'trilinear'][dims - 1]
-        self.pool_size = pool_size
+        self.pool_size = blocksize
 
-        self.pool1 = Pool(pool_size)
-        self.pool2 = Pool(pool_size)
+        self.pool1 = Pool(blocksize)
+        self.pool2 = Pool(blocksize)
 
-        groups = torch.cumprod(pool_size, 0)[-1]
+        groups = torch.cumprod(blocksize, 0)[-1]
 
         self.sa = nn.Sequential(
             Conv(in_channels=cin*2,
-                 out_channels=cin // ratio_1 * groups,
-                 kernel_size=pool_size,
+                 out_channels=cin // ratio * groups,
+                 kernel_size=blocksize,
                  bias=False,
-                 groups=cin // ratio_1,
+                 groups=cin // ratio,
                  ), nn.ReLU(),
-            Conv(in_channels=cin // ratio_1 * groups,
-                 out_channels=cin // ratio_1 * groups,
+            Conv(in_channels=cin // ratio * groups,
+                 out_channels=cin // ratio * groups,
                  kernel_size=1,
                  bias=False,
                  groups=groups
                  ), nn.ReLU(), ChannelShuffle(groups),
-            Conv(in_channels=cin // ratio_1 * groups,
+            Conv(in_channels=cin // ratio * groups,
                  out_channels=cin * groups,
                  kernel_size=1,
                  bias=False,
