@@ -33,7 +33,7 @@ class SA_Block(nn.Module):
                 nn.AdaptiveAvgPool3d][dims - 1]
         Conv = [nn.Conv1d, nn.Conv2d, nn.Conv3d][dims - 1]
         self.interpolate_mode = ['linear', 'bilinear', 'trilinear'][dims - 1]
-        self.pool_size = blocksize
+        self.blocksize = blocksize
 
         self.pool1 = Pool(blocksize)
         self.pool2 = Pool(blocksize)
@@ -60,21 +60,23 @@ class SA_Block(nn.Module):
                  groups=groups
                  ), nn.Sigmoid(),
         )
-
+                     
+    def interpolate(self, x, size):
+        return F.interpolate(p1, size, mode=self.interpolate_mode, align_corners=False)
+    
     def pool(self, x):
-        p1 = self.pool1(x)
-        xi = F.interpolate(
-            p1, x.shape[2:], mode=self.interpolate_mode, align_corners=False)
-        # 添加方差特征
-        p2 = self.pool2(torch.pow(x - xi, 2))
-        y = torch.cat([p1, p2], dim=1)
+        p1 = self.pool1(x)                     # 第一次全局池化
+        xi = self.interpolate(p1, x.shape[2:]) # 重采样
+        std = torch.pow(x - xi, 2)             # 计算方差
+        p2 = self.pool2(std)                   # 第二次全局池化
+        y = torch.cat([p1, p2], dim=1)         # 特征拼接
         return y
-
+    
     def conv(self, x):
-        # batch_size, *kernel_size×channel -> batch_size, channel, *kernel_size 
-        y = self.sa(x).reshape(x.shape[0], *self.pool_size, -
-                       1).unsqueeze(1).transpose(1, -1).squeeze(-1)
-        return y
+        # batch_size, *blocksize×channel -> batch_size, *blocksize , channel
+        y = self.sa(x).reshape(x.shape[0], *self.blocksize, -1) 
+        # batch_size, *blocksize , channel ->  batch_size, channel , *blocksize 
+        return y.unsqueeze(1).transpose(1, -1).squeeze(-1)
 
     def forward(self, x):
         xp = self.pool(x)
