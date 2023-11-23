@@ -3,75 +3,85 @@ from torch import nn
 from torch.nn import functional as F
 
 
-def channel_shuffle(x, groups):
-    shape = x.shape
-    # 获取输入特征图的shape=[b,c,*]
-    batch_size, num_channels, = shape[:2]
-    # 均分通道，获得每个组对应的通道数
-    channels_per_group = num_channels // groups
-    # 特征图shape调整 [b,c,*]==>[b,g,c_g,*]
-    x = x.view(batch_size, groups, channels_per_group, *shape[2:])
-    # 维度调整 [b,g,c_g,*]==>[b,c_g,g,*]；将调整后的tensor以连续值的形式保存在内存中
-    x = torch.transpose(x, 1, 2).contiguous()
-    # 将调整后的通道拼接回去 [b,c_g,g,*]==>[b,c,*]
-    x = x.view(batch_size, -1, *shape[2:])
-    # 完成通道重排
-    return x
-
-
-class ShuffleAttention(nn.Module):
-    def __init__(self, cin, kernel_size=(5,), ratio=4):
+class ChannelShuffle(nn.Module):
+    def __init__(self, groups) -> None:
         super().__init__()
-        dims = len(kernel_size)
-        assert dims in [1, 2, 3], 'ShuffleAttention only supports from 1 to 3 dimensions'
-        Pool = [nn.AdaptiveAvgPool1d, nn.AdaptiveAvgPool2d, nn.AdaptiveAvgPool3d][dims - 1]
+        self.groups = groups
+
+    def forward(self, x):
+        shape = x.shape 
+        batch_size, num_channels, = shape[:2] 
+        channels_per_group = num_channels // self.groups 
+        x = x.view(batch_size, self.groups, channels_per_group, *shape[2:]) 
+        x = torch.transpose(x, 1, 2).contiguous() 
+        x = x.view(batch_size, -1, *shape[2:]) 
+        return x
+
+
+class SA_Block(nn.Module):
+    def __init__(self,
+                 cin,
+                 pool_size=[5, 5],
+                 ratio_1=16,
+                 ratio_2=4,
+                 ):
+        super().__init__()
+        dims = len(pool_size)
+        assert dims in [
+            1, 2, 3], 'SA_Block only supports from 1 to 3 dimensions'
+        pool_size = torch.tensor(pool_size)
+        Pool = [nn.AdaptiveAvgPool1d, nn.AdaptiveAvgPool2d,
+                nn.AdaptiveAvgPool3d][dims - 1]
         Conv = [nn.Conv1d, nn.Conv2d, nn.Conv3d][dims - 1]
         self.interpolate_mode = ['linear', 'bilinear', 'trilinear'][dims - 1]
-        self.kernel_size = kernel_size
-        self.groups = 1
-        for i in kernel_size:
-            self.groups *= i
+        self.pool_size = pool_size
 
-        self.pool1 = Pool(kernel_size)
-        self.pool2 = Pool(kernel_size)
+        self.pool1 = Pool(pool_size)
+        self.pool2 = Pool(pool_size)
 
-        self.conv1 = Conv(in_channels=cin * 2,
-                          out_channels=cin // ratio * self.groups,
-                          kernel_size=kernel_size,
-                          bias=False,
-                          # groups=cin // ratio
-                          )
-        self.conv2 = Conv(in_channels=cin // ratio * self.groups,
-                          out_channels=cin * self.groups,
-                          kernel_size=1,
-                          bias=False,
-                          groups=self.groups
-                          )
+        groups = torch.cumprod(pool_size, 0)[-1]
+
+        self.sa = nn.Sequential(
+            Conv(in_channels=cin*2,
+                 out_channels=cin // ratio_1 * groups,
+                 kernel_size=pool_size,
+                 bias=False,
+                 groups=cin // ratio_1,
+                 ), nn.ReLU(),
+            Conv(in_channels=cin // ratio_1 * groups,
+                 out_channels=cin // ratio_1 * groups,
+                 kernel_size=1,
+                 bias=False,
+                 groups=groups
+                 ), nn.ReLU(), ChannelShuffle(groups),
+            Conv(in_channels=cin // ratio_1 * groups,
+                 out_channels=cin * groups,
+                 kernel_size=1,
+                 bias=False,
+                 groups=groups
+                 ), nn.Sigmoid(),
+        )
 
     def pool(self, x):
         p1 = self.pool1(x)
-        xi = F.interpolate(p1, x.shape[2:], mode=self.interpolate_mode, align_corners=False)
+        xi = F.interpolate(
+            p1, x.shape[2:], mode=self.interpolate_mode, align_corners=False)
         # 添加方差特征
         p2 = self.pool2(torch.pow(x - xi, 2))
         y = torch.cat([p1, p2], dim=1)
         return y
 
     def conv(self, x):
-        y = self.conv1(x)
-        y = F.relu(y)
-        # 采用channel_shuffle方法
-        y = channel_shuffle(y, self.groups)
-        y = self.conv2(y)
-        y = F.sigmoid(y)
-        # batch_size, *kernel_size×channel -> batch_size, channel, *kernel_size
-        print(y.shape, x.shape[0], self.kernel_size)
-        y = y.reshape(x.shape[0], *self.kernel_size, -1).unsqueeze(1).transpose(1, -1).squeeze(-1)
+        # batch_size, *kernel_size×channel -> batch_size, channel, *kernel_size 
+        y = self.sa(x).reshape(x.shape[0], *self.pool_size, -
+                       1).unsqueeze(1).transpose(1, -1).squeeze(-1)
         return y
 
     def forward(self, x):
         xp = self.pool(x)
         y = self.conv(xp)
         return x * F.interpolate(y, x.shape[2:], mode=self.interpolate_mode, align_corners=False)
+
 
 
 class SE_Block(nn.Module):
