@@ -31,7 +31,7 @@ def channel_shuffle_1d(x, groups):
     # 完成通道重排
     return x
 
-class ChannelAttention2d(nn.Module):
+class ShuffleAttention2d(nn.Module):
     def __init__(self, cin, kernel_size=(7, 7)):
         super().__init__()
         self.pool1 = nn.AdaptiveAvgPool2d(kernel_size)
@@ -64,7 +64,7 @@ class ChannelAttention2d(nn.Module):
         y = self.conv(xp)
         return x * F.interpolate(y, x.shape[2:3], mode='linear', align_corners=False)
 
-class ChannelAttention1d(nn.Module):
+class ShuffleAttention1d(nn.Module):
     def __init__(self, cin, kernel_size=(7,)):
         super().__init__()
         self.pool1 = nn.AdaptiveAvgPool1d(kernel_size)
