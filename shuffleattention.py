@@ -61,7 +61,7 @@ class SA_Block(nn.Module):
         )
                      
     def interpolate(self, x, size):
-        return F.interpolate(p1, size, mode=self.interpolate_mode, align_corners=False)
+        return F.interpolate(x, size, mode=self.interpolate_mode, align_corners=False)
     
     def pool(self, x):
         p1 = self.pool1(x)                     # 第一次全局池化
