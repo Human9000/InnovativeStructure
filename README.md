@@ -10,4 +10,4 @@
 7. Dynamic full connection（2023-4-12）./dyfc.py （已投）
 8. MConv(2023-10-26) ./mconv.py
 9. ShuffleAttention (2023-11-23） ./shuffleattention.py
-10. AssistSE (2023-11-17） ./assistse.py
+10. AssistSE (2023-11-17） ./assistse.py （你的SE需要一些支援）
