@@ -23,17 +23,14 @@ class MultiHeadConvBase(nn.Module):
         y = (soft_attn * data).sum(dim=2)  
         return y  # 返回输出  
   
-# 定义1D多头卷积模块，继承自基础模块，指定conv为nn.Conv1d  
 class MultiHeadConv1d(MultiHeadConvBase):  
     def __init__(self, attention_heads, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros', device=None, dtype=None):  
         super().__init__(nn.Conv1d, attention_heads, in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode, device, dtype)  
   
-# 定义2D多头卷积模块，继承自基础模块，指定conv为nn.Conv2d  
 class MultiHeadConv2d(MultiHeadConvBase):  
     def __init__(self, attention_heads, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros', device=None, dtype=None):  
         super().__init__(nn.Conv2d, attention_heads, in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode, device, dtype)  
   
-# 定义3D多头卷积模块，继承自基础模块，指定conv为nn.Conv3d  
 class MultiHeadConv3d(MultiHeadConvBase):  
     def __init__(self, attention_heads, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros', device=None, dtype=None):  
         super().__init__(nn.Conv3d, attention_heads, in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode, device, dtype)  
