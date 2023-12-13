@@ -1,4 +1,5 @@
-
+import torch
+from torch import nn
 
 class SE(nn.Module):
     def __init__(self, inp, oup, expansion=0.25):
