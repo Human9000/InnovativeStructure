@@ -12,3 +12,4 @@
 9. ShuffleAttention (2023-11-23） ./shuffleattention.py 洗牌注意力
 10. AssistSE (2023-11-17） ./assistse.py （你的SE需要一些支援）
 11. MutiHeadConv（2023/12/12）./multi_head_conv.py （多头卷积机制）
+12. KDEAttention (2024/01/10) ./kde_attention.py （核密度估计注意力）
