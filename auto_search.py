@@ -29,7 +29,7 @@ class AutoSearchBase(nn.Module):
 
     def get_mask_w(self):
         if self.training:
-            return self.auto_select()
+            return self._auto_search()
         return self.mask, self.w
 
 
