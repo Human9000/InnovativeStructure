@@ -1,18 +1,18 @@
 # 自动池化2d
 class AutoPool2d(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_sizes):
         super().__init__()
         # 自适应挑选特征从而进行池化
-        self.auto_pool_w1 = nn.Parameter(torch.rand(1, out_channels, in_channels))
+        self.auto_pool_w1 = nn.Parameter(torch.rand(1, out_sizes, in_channels))
         self.auto_pool_w2 = nn.Parameter(torch.rand(1, in_channels, in_channels))
         self.softmax = nn.Softmax(1)
 
     def forward(self, x):
         xf = x.flatten(2)  # b t hw
-        x1 = self.auto_pool_w1 @ xf  # b co hw
+        x1 = self.auto_pool_w1 @ xf  # b so hw
         x2 = self.auto_pool_w2 @ xf  # b cin hw
         x1 = self.softmax(x1)
-        return x2 @ x1.transpose(-1, 1)  # b cin co
+        return x2 @ x1.transpose(-1, 1)  # b cin so
 
 
 # 值域映射
