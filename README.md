@@ -14,3 +14,5 @@
 11. MutiHeadConv（2023/12/12）./multi_head_conv.py （多头卷积机制）
 12. KDEAttention (2024/01/10) ./kde_attention.py （核密度估计注意力）
 13. AutoSearch（2024/03/07） ./auto_search.py（自动搜索多种分组通道，多种残差特征，多种残差模块）
+
+懒惰使人懒惰，该项目之后不做日志了，有需要的同学可以查看上面的代码进行学习（2024/08/19）
