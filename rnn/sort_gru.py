@@ -94,14 +94,13 @@ class Log(nn.Module):
 
 
 class StreamingECG(nn.Module):
-    def __init__(self, in_channel, window, seg_number=4, cls_number=4, hidden=64, num_layers=8):
+    def __init__(self, in_channel, window, seg_number=4, cls_number=4, hidden=64, num_layers=8, groups=8):
         super().__init__()
         self.win = window
         # num_layers = 8
         self.gru = SortGRU(input_size=in_channel * window,
                            hidden_size=hidden,
                            num_layers=num_layers, )
-        groups = 8
         self.seg_head = nn.Sequential(
             nn.Unflatten(2, (groups, -1)),  # 分组
             nn.Linear(hidden // groups, seg_number, bias=False),
@@ -146,6 +145,7 @@ if __name__ == '__main__':
                          cls_number=4,
                          hidden=96,
                          num_layers=16,
+                         groups=8,
                          ).cuda()  # 12个通道，每个通道有5个特征
     batch_size = 100
     x = torch.randn(batch_size, 500 * 15, 12).cuda()  # 15s的数据, 采样率 500 hz
