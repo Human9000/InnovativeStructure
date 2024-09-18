@@ -103,7 +103,7 @@ class ConvPlus1d(nn.Module):
         batch = x.shape[0]
         print(x.shape, weight.shape, bias.shape,batch, self.groups)
         y = F.conv1d(
-            torch.flatten(x, 0, 1)[None],  # b c w h -> 1 bc w h
+            torch.flatten(x, 0, 1)[None],  # b c l -> 1 bc l
             torch.flatten(weight, 0, 1),  # bc2 c 3 3
             torch.flatten(bias, 0, 1),  # bc2
             groups=batch*self.groups,
