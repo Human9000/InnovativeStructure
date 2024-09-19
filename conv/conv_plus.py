@@ -33,7 +33,6 @@ class ConvMaker(nn.Module):
         kernel_cumsum = 1
         for k in kernel_size:
             kernel_cumsum *= k
-
         mean_dim = [2, [2, 3], [2, 3, 4]][dims-1]
         Conv = [nn.Conv1d, nn.Conv2d, nn.Conv3d][dims-1]
 
@@ -45,31 +44,46 @@ class ConvMaker(nn.Module):
                                          padding=padding,
                                          dilation=dilation,
                                          groups=in_channels,
-                                         bias=False,
-                                         padding_mode=padding_mode,),
+                                         bias=False, ),
                                     Mean(mean_dim),
-                                    nn.Unflatten(1, [in_channels,] + kernel_size),
+                                    nn.Unflatten(1, [in_channels,] + kernel_size), 
                                     )
+        # 卷积核的缩放因子
+        # self.scale = 1/ kernel_cumsum
+
+        self.scale = 1/ (kernel_cumsum * in_channels ) ** 0.5
+
         # 卷积核权重生成器，根据生成的卷积核生成卷积核的输入权重
-        self.weight_in = Conv(in_channels, in_channels//groups, 1)
+        self.weight_in = Conv(in_channels, in_channels//groups, 1, bias=True)
         # 卷积核权重生成器，根据生成的卷积核生成卷积核的输出权重
-        self.weight_out = Conv(in_channels, out_channels, kernel_size, groups=groups, bias=False)
+        self.weight_out = Conv(in_channels, out_channels, kernel_size, groups=groups, bias=True)
+ 
 
         # 偏执生成器，根据生成的卷积核生成卷积核的偏执
         if bias:
             self.bias_out = nn.Sequential(
-                Conv(in_channels, out_channels, kernel_size, groups=groups, bias=False),
-                nn.Flatten(1),
+              Conv(in_channels, out_channels, kernel_size, groups=groups, bias=True),
+              nn.Flatten(0),              
             )
         else:
             self.bias_out = lambda *args, **argv: None
 
-    def forward(self, x):
-        kernel = self.kernel(x)
-        w_in = self.weight_in(kernel).unsqueeze(1)
+
+    def forward_weight(self, kernel):
+        w_in = self.weight_in(kernel).unsqueeze(1) 
         w_out = self.weight_out(kernel).unsqueeze(2)
-        weight = w_in * w_out
+        weight = (F.sigmoid(w_in * w_out) * 2 - 1) * self.scale * 2
+        weight = torch.flatten(weight, 0, 1)  # bc2 c k
+        return weight
+
+    def forward_bias(self, kernel): 
         bias = self.bias_out(kernel)
+        return bias 
+
+    def forward(self, x):
+        kernel = self.kernel(x) 
+        weight = self.forward_weight(kernel)
+        bias = self.forward_bias(kernel) 
         return weight, bias
 
 
@@ -89,7 +103,7 @@ class BaseConvPlus(nn.Module):
         self.stride = stride
         if padding == 0:
             self.padding = 'valid'
-        elif padding == kernel_size // 2:
+        elif padding == -1:
             self.padding = 'same'
         else:
             self.padding = padding
@@ -113,16 +127,18 @@ class BaseConvPlus(nn.Module):
     def forward(self, x):
         weight, bias = self.maker(x)
         batch = x.shape[0]
+        print(x.shape, weight.shape, bias.shape)
         y = self.conv(
             torch.flatten(x, 0, 1)[None],  # b c l -> 1 bc l
-            torch.flatten(weight, 0, 1),  # bc2 c k
-            torch.flatten(bias, 0, 1),  # bc2
+            weight,
+            bias,
             groups=batch*self.groups,
             stride=self.stride,
             padding=self.padding,
             dilation=self.dilation,
         )
         y = torch.unflatten(y[0], 0, (batch, -1))
+
         return y
 
 
@@ -139,36 +155,30 @@ class ConvPlus1d(BaseConvPlus):
 
 class ConvPlus2d(BaseConvPlus):
     def __init__(self, in_channels, out_channels,  kernel_size,
-                 stride=2,
+                 stride=1,
                  padding=0,
                  dilation=1,
                  groups=1,
                  bias=False,
                  ):
         super(ConvPlus2d, self).__init__(2, in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
-        
+
+
 class ConvPlus3d(BaseConvPlus):
     def __init__(self, in_channels, out_channels,  kernel_size,
-                 stride=3,
+                 stride=1,
                  padding=0,
                  dilation=1,
                  groups=1,
                  bias=False,
                  ):
         super(ConvPlus3d, self).__init__(3, in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
-        
 
 
 def test1d():
     print('========== test 1d ===========')
-    conv1dp = ConvPlus1d(32, 64, 3, 1, 1, 1, groups=1, bias=True)
-    conv1d = nn.Conv1d(32, 64, 3, 1, 1, 1, groups=1, bias=True)
-
-    # res = ptflops.get_model_complexity_info(conv1dp, (32, 64), print_per_layer_stat=True)
-    # print(res)
-
-    # res = ptflops.get_model_complexity_info(conv1d, (32, 64), print_per_layer_stat=True)
-    # print(res)
+    conv1dp = ConvPlus1d(32, 64, 5, 1, 2, 5, groups=1, bias=True)
+    conv1d = nn.Conv1d(32, 64, 5, 1, 2, 5, groups=1, bias=True)
 
     yp = conv1dp(torch.rand(1, 32,  64))
     print(yp.shape)
@@ -195,17 +205,12 @@ def test2d():
     print(y.shape)
     print(yp.shape)
 
+
 def test3d():
     print('========== test 3d ===========')
 
-    conv3dp = ConvPlus3d(32, 64, 3, 1, 1, 1, groups=1, bias=True)
-    conv3d = nn.Conv3d(32, 64, 3, 1, 1, 1, groups=1, bias=True)
-
-    # res = ptflops.get_model_complexity_info(conv3dp, (32, 64, 64, 64), print_per_layer_stat=True)
-    # print(res)
-
-    # res = ptflops.get_model_complexity_info(conv3d, (32, 64, 64, 64), print_per_layer_stat=True)
-    # print(res)
+    conv3dp = ConvPlus3d(32, 64, 3, 1, 5, 1, groups=2, bias=True)
+    conv3d = nn.Conv3d(32, 64, 3, 1, 5, 1, groups=2, bias=True)
 
     yp = conv3dp(torch.rand(1, 32,  64, 64, 64))
     y = conv3d(torch.rand(1, 32, 64, 64, 64))
@@ -214,8 +219,9 @@ def test3d():
     print(yp.shape)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
+
     import ptflops
     test1d()
-    # test2d()
-    # test3d()
+    test2d()
+    test3d()
