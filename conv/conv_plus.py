@@ -49,8 +49,6 @@ class ConvMaker(nn.Module):
                                     nn.Unflatten(1, [in_channels,] + kernel_size), 
                                     )
         # 卷积核的缩放因子
-        # self.scale = 1/ kernel_cumsum
-
         self.scale = 1/ (kernel_cumsum * in_channels ) ** 0.5
 
         # 卷积核权重生成器，根据生成的卷积核生成卷积核的输入权重
