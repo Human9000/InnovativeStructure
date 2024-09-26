@@ -53,6 +53,7 @@ class ConvMaker(nn.Module):
 
         # 卷积核权重生成器，根据生成的卷积核生成卷积核的输入权重
         self.weight_in = Conv(in_channels, in_channels//groups, 1, bias=True)
+        
         # 卷积核权重生成器，根据生成的卷积核生成卷积核的输出权重
         self.weight_out = Conv(in_channels, out_channels, kernel_size, groups=groups, bias=True)
  
