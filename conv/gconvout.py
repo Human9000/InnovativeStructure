@@ -14,9 +14,9 @@ class Transpose(nn.Module):
 
 
 # 3*255*255 =》 27*(255/3)*(255/3)
-class ConvOutBase(nn.Module):
+class GSUBase(nn.Module):
     def __init__(self, dim, in_channels, out_channels, kernel_size, stride=1, padding=1, dilation=1, groups=1):
-        super(ConvOutBase, self).__init__()
+        super(GSUBase, self).__init__()
         assert dim in [1, 2, 3]
         self.g = groups
         # ============= 根据dim生成相关参数 ===========
@@ -51,9 +51,9 @@ class ConvOutBase(nn.Module):
         return y
 
 
-class GConvOutBase(ConvOutBase):
+class GGSUBase(GSUBase):
     def __init__(self, dim, in_channels, out_channels, kernel_size, stride=1, padding=1, dilation=1, groups=1):
-        super(GConvOutBase, self).__init__(dim, in_channels, out_channels, kernel_size, stride, padding, dilation, groups)
+        super(GGSUBase, self).__init__(dim, in_channels, out_channels, kernel_size, stride, padding, dilation, groups)
         assert dim in [1, 2, 3]
         # ============= 根据dim生成相关参数 ===========
         self.Pool = [nn.AdaptiveAvgPool1d, nn.AdaptiveAvgPool2d, nn.AdaptiveAvgPool3d][dim-1]
@@ -93,32 +93,32 @@ class GConvOutBase(ConvOutBase):
         return y
 
 
-class ConvOut1d(ConvOutBase):
+class GSU1d(GSUBase):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=1, dilation=1, groups=1):
         super().__init__(1, in_channels, out_channels, kernel_size, stride, padding, dilation, groups)
 
 
-class GConvOut1d(GConvOutBase):
+class GGSU1d(GGSUBase):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=1, dilation=1, groups=1):
         super().__init__(1, in_channels, out_channels, kernel_size, stride, padding, dilation, groups)
 
 
-class ConvOut2d(ConvOutBase):
+class GSU2d(GSUBase):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=1, dilation=1, groups=1):
         super().__init__(2, in_channels, out_channels, kernel_size, stride, padding, dilation, groups)
 
 
-class GConvOut2d(GConvOutBase):
+class GGSU2d(GGSUBase):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=1, dilation=1, groups=1):
         super().__init__(2, in_channels, out_channels, kernel_size, stride, padding, dilation, groups)
 
 
-class ConvOut3d(ConvOutBase):
+class GSU3d(GSUBase):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=1, dilation=1, groups=1):
         super().__init__(3, in_channels, out_channels, kernel_size, stride, padding, dilation, groups)
 
 
-class GConvOut3d(GConvOutBase):
+class GGSU3d(GGSUBase):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=1, dilation=1, groups=1):
         super().__init__(3, in_channels, out_channels, kernel_size, stride, padding, dilation, groups)
 
@@ -132,8 +132,8 @@ if __name__ == '__main__':
     stride = 1
     padding = 1
     dilation = 1
-    conv_out = ConvOut2d(in_channle, out_channle, kernel_size,  stride=stride, padding=padding, dilation=dilation, groups=groups, )
-    g_conv_out = GConvOut2d(in_channle, out_channle, kernel_size,  stride=stride, padding=padding, dilation=dilation, groups=groups, )
+    conv_out = GSU2d(in_channle, out_channle, kernel_size,  stride=stride, padding=padding, dilation=dilation, groups=groups, )
+    g_conv_out = GGSU2d(in_channle, out_channle, kernel_size,  stride=stride, padding=padding, dilation=dilation, groups=groups, )
     conv2d = nn.Conv2d(in_channle, out_channle, kernel_size,  stride=stride, padding=padding, dilation=dilation, groups=groups, ) 
 
     g_out_res = get_model_complexity_info(g_conv_out,
