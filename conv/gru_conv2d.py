@@ -24,53 +24,72 @@ class GruDirection2d(nn.Module):
         else:
             self.forward = self.forward_wh
 
-    def forward_h(self, z, _h, h0):  # 定义forward_h函数
-        B, C, H, W = z.shape  # 获取输入z的形状
-        dh = abs(self.dh)  # 计算dh的绝对值
-        _h = self.fh(_h)  # 根据dh的符号翻转输入_h
-        z = self.fh(z)  # 根据dh的符号翻转输入z
+    def forward_h(self, z, _h, h0):         # 定义forward_h函数
+        B, C, H, W = z.shape                # 获取输入z的形状
+        dh = abs(self.dh)                   # 计算dh的绝对值
+        _h = self.fh(_h)                    # 根据dh的符号翻转输入_h
+        z = self.fh(z)                      # 根据dh的符号翻转输入z
         h = torch.empty(B, C, H + dh, W, device=z.device)  # 初始化输出h
-        h[:, :, :dh, :] = h0  # 初始化h的前dh行
-        for th in range(H):  # 循环更新h
-            h_1 = h[:, :, th, :]  # 获取当前时间步的h
-            zt = z[:, :, th, :]  # 获取当前时间步的z
-            _ht = _h[:, :, th, :]  # 获取当前时间步的_h
+        h[:, :, :dh, :] = h0                # 初始化h的前dh行
+        for th in range(H):                 # 循环更新H
+            h_1 = h[:, :, th, :]            # 获取当前时间步的h
+            zt = z[:, :, th, :]             # 获取当前时间步的z
+            _ht = _h[:, :, th, :]           # 获取当前时间步的_h
             h[:, :, th + dh, :] = zt * _ht + (1 - zt) * h_1  # 更新h
-        return self.fh(h[:, :, dh:, :])  # 返回翻转后的h
+        return self.fh(h[:, :, dh:, :])     # 返回翻转后的h
 
-    def forward_w(self, z, _h, h0):  # 定义forward_w函数
-        B, C, H, W = z.shape  # 获取输入z的形状
-        dw = abs(self.dw)  # 计算dw的绝对值
-        _h = self.fw(_h)  # 根据dw的符号翻转输入_h
-        z = self.fw(z)  # 根据dw的符号翻转输入z
+    def forward_w(self, z, _h, h0):         # 定义forward_w函数
+        B, C, H, W = z.shape                # 获取输入z的形状
+        dw = abs(self.dw)                   # 计算dw的绝对值
+        _h = self.fw(_h)                    # 根据dw的符号翻转输入_h
+        z = self.fw(z)                      # 根据dw的符号翻转输入z
         h = torch.empty(B, C, H, W + dw, device=z.device)  # 初始化输出h
-        h[:, :, :, :dw] = h0  # 初始化h的前dw列
-        for tw in range(W):  # 循环更新h
-            h_1 = h[:, :, :, tw]  # 获取当前时间步的h
-            zt = z[:, :, :, tw]  # 获取当前时间步的z
-            _ht = _h[:, :, :, tw]  # 获取当前时间步的_h
+        h[:, :, :, :dw] = h0                # 初始化h的前dw列
+        for tw in range(W):                 # 循环更新W
+            h_1 = h[:, :, :, tw]            # 获取当前时间步的h
+            zt = z[:, :, :, tw]             # 获取当前时间步的z
+            _ht = _h[:, :, :, tw]           # 获取当前时间步的_h
             h[:, :, :, tw + dw] = zt * _ht + (1 - zt) * h_1  # 更新h
-        return self.fw(h[:, :, :, dw:])  # 返回翻转后的h
+        return self.fw(h[:, :, :, dw:])     # 返回翻转后的h
 
-    def forward_wh(self, z, _h, h0):  # 定义forward_wh函数
-        B, C, H, W = z.shape  # 获取输入z的形状
-        dh, dw = abs(self.dh), abs(self.dw)  # 计算dh和dw的绝对值
+    def forward_wh(self, z, _h, h0):        # 定义forward_wh函数
+        B, C, H, W = z.shape                # 获取输入z的形状
+        dh, dw = abs(self.dh), abs(self.dw) # 计算dh和dw的绝对值
         h = torch.empty(B, C, H + dh, W + dw, device=z.device)  # 初始化输出h
-        _h = self.fw(self.fh(_h))  # 根据dh和dw的符号翻转输入_h
-        z = self.fw(self.fh(z))  # 根据dh和dw的符号翻转输入z
-        h[:, :, :dh, :dw] = h0  # 初始化h的前dh行和前dw列
-        for th in range(H):  # 循环更新h
-            for tw in range(W):  # 循环更新h
-                h_1 = h[:, :, th, tw]  # 获取当前时间步的h
-                zt = z[:, :, th, tw]  # 获取当前时间步的z
-                _ht = _h[:, :, th, tw]  # 获取当前时间步的_h
-                h[:, :, th + dh, tw + dw] = zt * _ht + (1 - zt) * h_1  # 更新h
-        h = h[:, :, dh:, dw:]  # 截取有效部分的h
-        return self.fw(self.fh(h))  # 返回翻转后的h
+        _h = self.fw(self.fh(_h))           # 根据dh和dw的符号翻转输入_h
+        z = self.fw(self.fh(z))             # 根据dh和dw的符号翻转输入z
+        h[:, :, :dh, :dw] = h0              # 初始化h的前dh行和前dw列
+
+        for t in range(min(H, W)):
+            Ht = torch.tensor(list(range(t, H, 1)) + [t,] * (W-t-1))  # 可以并行计算的Ht索引
+            Wt = torch.tensor([t,] * (H-t) + list(range(t+1, W, 1)))  # 可以并行计算的Wt索引
+            h_1 = h[:, :, Ht, Wt]           # 获取当前时间步的h
+            zt = z[:, :, Ht, Wt]            # 获取当前时间步的z
+            _ht = _h[:, :, Ht, Wt]          # 获取当前时间步的_h
+            h[:, :, Ht + dh, Wt + dw] = zt * _ht + (1 - zt) * h_1  # 更新当前时间步的h
+        h = h[:, :, dh:, dw:]               # 截取有效部分的h
+        return self.fw(self.fh(h))          # 返回翻转后的h
+
+    # def forward_wh2(self, z, _h, h0):        # 定义forward_wh函数
+    #     B, C, H, W = z.shape                # 获取输入z的形状
+    #     dh, dw = abs(self.dh), abs(self.dw) # 计算dh和dw的绝对值
+    #     h = torch.empty(B, C, H + dh, W + dw, device=z.device)  # 初始化输出h
+    #     _h = self.fw(self.fh(_h))           # 根据dh和dw的符号翻转输入_h
+    #     z = self.fw(self.fh(z))             # 根据dh和dw的符号翻转输入z
+    #     h[:, :, :dh, :dw] = h0              # 初始化h的前dh行和前dw列
+    #     for th in range(H):                 # 循环更新H
+    #         for tw in range(W):             # 循环更W
+    #             h_1 = h[:, :, th, tw]       # 获取当前时间步的h
+    #             zt = z[:, :, th, tw]        # 获取当前时间步的z
+    #             _ht = _h[:, :, th, tw]      # 获取当前时间步的_h
+    #             h[:, :, th + dh, tw + dw] = zt * _ht + (1 - zt) * h_1  # 更新h
+    #     h = h[:, :, dh:, dw:]               # 截取有效部分的h
+    #     return self.fw(self.fh(h))          # 返回翻转后的h
 
 
 class GRUConv2d(nn.Module):
-    """ 多方向2dGRUConv模块 """ 
+    """ 多方向2dGRUConv模块 """
+
     def __init__(self,
                  in_channels,
                  out_channels,
