@@ -6,6 +6,7 @@ from torch.nn import (
 )
 from timm.layers import SqueezeExcite
 
+# 炼丹炉卷积v2
 
 class FurnaceConv(Sequential):
     rate_s = 2  # 炼丹炉的输入输出的加速比
@@ -69,7 +70,7 @@ class FurnaceConv(Sequential):
 
 class FurnaceConvBN(Sequential):
     rate_s = 2  # 炼丹炉的输入输出的加速比
-    rate_e = 4  # 炼丹炉的膨胀比
+    rate_e = 2  # 炼丹炉的膨胀比
 
     def __init__(self, dims, c_in, c_out, kernal_size=1, stride=1, padding=0, dilation=1,
                  groups=1, bias=False, bn_weight_init=1):

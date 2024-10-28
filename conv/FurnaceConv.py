@@ -4,7 +4,7 @@ from torch.nn import (
     BatchNorm1d, BatchNorm2d, BatchNorm3d,
     Sequential
 )
-
+# 炼丹炉卷积
 
 class FurnaceConv(Sequential):
     def __init__(self, dims, c_in, c_out, kernal_size=1, stride=1, padding=0, dilation=1,
