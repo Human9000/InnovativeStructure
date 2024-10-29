@@ -3,88 +3,64 @@ from torch import nn
 
 
 class GruDirection2d(nn.Module):
-    """ 动态规划实现2d多方向更新, 支持水平, 垂直, 倾斜, 跨步长 的更新策略"""
-
-    def __init__(self, dh=1, dw=1):
+    """ 动态规划实现2d多方向更新, 支持水平, 垂直, 倾斜, 跨步长 的更新策略""" 
+    def __init__(self, d1=1, d2=1):
         super().__init__()
-        if dh == 0 and dw == 0:
-            raise ValueError("dh and dw cannot be both 0")
+        ds = torch.tensor([d1, d2])
+        nd = (ds != 0).sum()
+        if nd == 0:
+            raise ValueError("d1, d2 cannot be all 0")
 
-        self.dh = dh
-        self.dw = dw
-        # 根据dh和dw的符号来决定是否需要翻转输入
-        self.fh = (lambda x: torch.flip(x, dims=[2])) if self.dh < 0 else (lambda x: x)
-        self.fw = (lambda x: torch.flip(x, dims=[3])) if self.dw < 0 else (lambda x: x)
+        if nd == 1:  # 1个维度不为0
+            idx = torch.where(ds != 0)[0]  # 获取不为0的维度索引
+            self.flip = lambda x: torch.flip(x, dims=[idx+2]) if ds[idx] < 0 else (lambda x: x)
+            self.trans = lambda x: x.transpose(2, idx+2)  # 将不为0的维度移动到2维度
+            self.d = ds[idx]
+            self.forward = self.forward_1
+        elif nd == 2:  # 2个维度不为0
+            flip_idxs = torch.where(ds < 0)[0]    # 获取需要翻转的维度索引
+            self.flip = (lambda x: torch.flip(x, dims=flip_idxs+2)) if flip_idxs.shape[0] > 0 else (lambda x: x)
+            self.trans = lambda x: x
+            self.d = ds
+            self.forward = self.forward_2
 
-        # 根据dh和dw的值来选择合适的forward函数
-        if self.dh == 0:
-            self.forward = self.forward_w
-        elif self.dw == 0:
-            self.forward = self.forward_h
-        else:
-            self.forward = self.forward_wh
+    def forward_1(self, z, _h, h0):     # 定义forward_h函数
+        _h = self.trans(self.flip(_h))  # 根据d调整输入_h的形状
+        z = self.trans(self.flip(z))    # 根据d调整输入z的形状
+        B, C, H, W = z.shape            # 获取输入z的形状
+        d = abs(self.d)                 # 计算d的绝对值
+        h = torch.empty(B, C, H + d, W, device=z.device)  # 初始化输出h
+        h[:, :, :d] = h0                # 初始化h的前d行
+        for th in range(H):             # 循环更新h
+            h_1 = h[:, :, th]           # H维度，获取当前时间步的h
+            zt = z[:, :, th, ]          # H维度，获取当前时间步的z
+            _ht = _h[:, :, th, ]        # H维度，获取当前时间步的_h
+            h[:, :, th + d] = zt * _ht + (1 - zt) * h_1  # H维度，更新h
+        h = h[:, :, d:, :]              # 截取有效部分的h
+        return self.flip(self.trans(h)) # 返回翻转后的h
 
-    def forward_h(self, z, _h, h0):         # 定义forward_h函数
-        B, C, H, W = z.shape                # 获取输入z的形状
-        dh = abs(self.dh)                   # 计算dh的绝对值
-        _h = self.fh(_h)                    # 根据dh的符号翻转输入_h
-        z = self.fh(z)                      # 根据dh的符号翻转输入z
-        h = torch.empty(B, C, H + dh, W, device=z.device)  # 初始化输出h
-        h[:, :, :dh, :] = h0                # 初始化h的前dh行
-        for th in range(H):                 # 循环更新H
-            h_1 = h[:, :, th, :]            # 获取当前时间步的h
-            zt = z[:, :, th, :]             # 获取当前时间步的z
-            _ht = _h[:, :, th, :]           # 获取当前时间步的_h
-            h[:, :, th + dh, :] = zt * _ht + (1 - zt) * h_1  # 更新h
-        return self.fh(h[:, :, dh:, :])     # 返回翻转后的h
-
-    def forward_w(self, z, _h, h0):         # 定义forward_w函数
-        B, C, H, W = z.shape                # 获取输入z的形状
-        dw = abs(self.dw)                   # 计算dw的绝对值
-        _h = self.fw(_h)                    # 根据dw的符号翻转输入_h
-        z = self.fw(z)                      # 根据dw的符号翻转输入z
-        h = torch.empty(B, C, H, W + dw, device=z.device)  # 初始化输出h
-        h[:, :, :, :dw] = h0                # 初始化h的前dw列
-        for tw in range(W):                 # 循环更新W
-            h_1 = h[:, :, :, tw]            # 获取当前时间步的h
-            zt = z[:, :, :, tw]             # 获取当前时间步的z
-            _ht = _h[:, :, :, tw]           # 获取当前时间步的_h
-            h[:, :, :, tw + dw] = zt * _ht + (1 - zt) * h_1  # 更新h
-        return self.fw(h[:, :, :, dw:])     # 返回翻转后的h
-
-    def forward_wh(self, z, _h, h0):        # 定义forward_wh函数
-        B, C, H, W = z.shape                # 获取输入z的形状
-        dh, dw = abs(self.dh), abs(self.dw) # 计算dh和dw的绝对值
+    def forward_2(self, z, _h, h0):     # 定义forward_h函数
+        _h = self.trans(self.flip(_h))  # 根据d调整输入_h的形状
+        z = self.trans(self.flip(z))    # 根据d调整输入z的形状
+        min_dim = torch.argmin(torch.tensor(z.shape[2:])).item() # 计算维度数最小的维度索引
+        z = z.transpose(4, min_dim+2)   # 将维度数最小的维度移动到4(W)维度
+        _h = _h.transpose(4, min_dim+2) # 将维度数最小的维度移动到4(W)维度
+        B, C, H, W = z.shape            # 获取输入z的形状 
+        dh, dw = abs(self.d[0]), abs(self.d[1])  # 计算dh和dw的绝对值
         h = torch.empty(B, C, H + dh, W + dw, device=z.device)  # 初始化输出h
-        _h = self.fw(self.fh(_h))           # 根据dh和dw的符号翻转输入_h
-        z = self.fw(self.fh(z))             # 根据dh和dw的符号翻转输入z
-        h[:, :, :dh, :dw] = h0              # 初始化h的前dh行和前dw列
-
-        for t in range(min(H, W)):
-            Ht = torch.tensor(list(range(t, H, 1)) + [t,] * (W-t-1))  # 可以并行计算的Ht索引
-            Wt = torch.tensor([t,] * (H-t) + list(range(t+1, W, 1)))  # 可以并行计算的Wt索引
-            h_1 = h[:, :, Ht, Wt]           # 获取当前时间步的h
-            zt = z[:, :, Ht, Wt]            # 获取当前时间步的z
-            _ht = _h[:, :, Ht, Wt]          # 获取当前时间步的_h
-            h[:, :, Ht + dh, Wt + dw] = zt * _ht + (1 - zt) * h_1  # 更新当前时间步的h
-        h = h[:, :, dh:, dw:]               # 截取有效部分的h
-        return self.fw(self.fh(h))          # 返回翻转后的h
-
-    # def forward_wh2(self, z, _h, h0):        # 定义forward_wh函数
-    #     B, C, H, W = z.shape                # 获取输入z的形状
-    #     dh, dw = abs(self.dh), abs(self.dw) # 计算dh和dw的绝对值
-    #     h = torch.empty(B, C, H + dh, W + dw, device=z.device)  # 初始化输出h
-    #     _h = self.fw(self.fh(_h))           # 根据dh和dw的符号翻转输入_h
-    #     z = self.fw(self.fh(z))             # 根据dh和dw的符号翻转输入z
-    #     h[:, :, :dh, :dw] = h0              # 初始化h的前dh行和前dw列
-    #     for th in range(H):                 # 循环更新H
-    #         for tw in range(W):             # 循环更W
-    #             h_1 = h[:, :, th, tw]       # 获取当前时间步的h
-    #             zt = z[:, :, th, tw]        # 获取当前时间步的z
-    #             _ht = _h[:, :, th, tw]      # 获取当前时间步的_h
-    #             h[:, :, th + dh, tw + dw] = zt * _ht + (1 - zt) * h_1  # 更新h
-    #     h = h[:, :, dh:, dw:]               # 截取有效部分的h
-    #     return self.fw(self.fh(h))          # 返回翻转后的h
+        h[:, :, :dh, :dw] = h0          # 初始化h的前dh行和前dw列
+        for t in range(W):              # 循环更新h隐状态 
+            h_1 = h[:, :, t, t:]        # H维度，获取当前时间步的h
+            zt = z[:, :, t, t:]         # H维度，获取当前时间步的z
+            _ht = _h[:, :, t, t:]       # H维度，获取当前时间步的_h
+            h[:, :, t + dh, t + dw] = zt * _ht + (1 - zt) * h_1  # H维度，更新h
+            h_1 = h[:, :, t+1:, t]      # W维度，获取当前时间步的h
+            zt = z[:, :, t+1:, t]       # W维度，获取当前时间步的z
+            _ht = _h[:, :, t+1:, t]     # W维度，获取当前时间步的_h
+            h[:, :, t + dh + 1, t + dw] = zt * _ht + (1 - zt) * h_1  # W维度，更新h
+        h = h.transpose(4, min_dim+2)   # 还原“维度数最小的维度，移动到4”
+        h = h[:, :, dh:, dw:]           # 截取有效部分的h
+        return self.flip(self.trans(h)) # 返回翻转后的h
 
 
 class GRUConv2d(nn.Module):
