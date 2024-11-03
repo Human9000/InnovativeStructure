@@ -4,6 +4,7 @@ from torch import nn
 
 class GRUParallelDirection2d(nn.Module):
     """ 并行的2d GRU 多方向更新策略, 支持水平, 垂直, 倾斜, 跨步长 的更新策略"""
+
     def __init__(self, d1=1, d2=1):
         super().__init__()
         ds = torch.tensor([d1, d2])
@@ -14,13 +15,12 @@ class GRUParallelDirection2d(nn.Module):
         if nd == 1:  # 1个维度不为0
             idx = torch.where(ds != 0)[0]  # 获取不为0的维度索引
             self.flip = (lambda x: torch.flip(x, dims=[idx+2])) if ds[idx] < 0 else (lambda x: x)
-            self.trans = lambda x: x.transpose(2, (idx+2).item())  # 将不为0的维度移动到2维度
+            self.trans = lambda x: x.transpose(-1, (idx+2).item())  # 将不为0的维度移动到末尾
             self.d = ds[idx].item()
             self.forward = self.forward_1
         elif nd == 2:  # 2个维度不为0
             flip_idxs = torch.where(ds < 0)[0]    # 获取需要翻转的维度索引
             self.flip = (lambda x: torch.flip(x, dims=(flip_idxs+2).numpy().tolist())) if flip_idxs.shape[0] > 0 else (lambda x: x)
-            self.trans = lambda x: x
             self.d = ds
             self.forward = self.forward_2
 
@@ -29,38 +29,41 @@ class GRUParallelDirection2d(nn.Module):
         z = self.trans(self.flip(z))    # 根据d调整输入z的形状
         B, C, H, W = z.shape            # 获取输入z的形状
         d = abs(self.d)                 # 计算d的绝对值
-        h = torch.empty(B, C, H + d, W, device=z.device)  # 初始化输出h
-        h[:, :, :d] = h0                # 初始化h的前d行
-        for t in range(H):              # 循环更新h
-            h_1 = h[:, :, t]            # H维度，获取当前时间步的h_1
-            zt = z[:, :, t]             # H维度，获取当前时间步的z
-            _ht = _h[:, :, t]           # H维度，获取当前时间步的_h
-            h[:, :, t + d] = zt * _ht + (1 - zt) * h_1  # H维度，更新h
-        h = h[:, :, d:, :]              # 截取有效部分的h
-        return self.flip(self.trans(h))  # 返回翻转后的h
+        h = torch.empty(B, C, H, W+d, device=z.device)  # 初始化输出h
+        h[..., :d] = h0                 # 初始化h的前d行 
+        t_num = (W+d-1)//d              # 计算时间步数
+        ts = torch.arange(t_num+2)*d    # 计算时间步列表 
+        for ti in range(t_num):         # 循环更新h
+            t = ts[ti:ti+3]             # 获取当前时间步的索引
+            h_1 =  h[..., t[0]:t[1]]    # H维度，获取当前时间步的h_1
+            zt =   z[..., t[0]:t[1]]    # H维度，获取当前时间步的z
+            _ht = _h[..., t[0]:t[1]]    # H维度，获取当前时间步的_h
+            h[..., t[1]:t[2]] = zt * _ht + (1 - zt) * h_1  # H维度，更新h
+        h = h[..., d:]                  # 截取有效部分的h
+        return self.flip(self.trans(h)) # 返回翻转后的h
 
     def forward_2(self, z, _h, h0):     # 定义forward_h函数
-        _h = self.trans(self.flip(_h))  # 根据d调整输入_h的形状
-        z = self.trans(self.flip(z))    # 根据d调整输入z的形状
-        min_dim = torch.argmin(torch.tensor(z.shape[2:])).item()  # 计算维度数最小的维度索引
-        z = z.transpose(3, min_dim+2)   # 将维度数最小的维度移动到3(W)维度
-        _h = _h.transpose(3, min_dim+2)  # 将维度数最小的维度移动到3(W)维度
+        _h = self.flip(_h)              # 根据d调整输入_h的形状
+        z  = self.flip(z)               # 根据d调整输入z的形状 
         B, C, H, W = z.shape            # 获取输入z的形状
         dh, dw = abs(self.d[0]), abs(self.d[1])  # 计算dh和dw的绝对值
         h = torch.empty(B, C, H + dh, W + dw, device=z.device)  # 初始化输出h
-        h[:, :, :dh, :dw] = h0          # 初始化h的前dh行和前dw列
-        for t in range(W):              # 循环更新h隐状态
-            h_1 = h[:, :, t, t:-dw]     # H维度，获取当前时间步的h_1
-            zt = z[:, :, t, t:]         # H维度，获取当前时间步的z
-            _ht = _h[:, :, t, t:]       # H维度，获取当前时间步的_h
-            h[:, :, t + dh, t + dw:] = zt * _ht + (1 - zt) * h_1  # H维度，更新h
-            h_1 = h[:, :, t+1:-dh, t]   # W维度，获取当前时间步的h_1
-            zt = z[:, :, t+1:, t]       # W维度，获取当前时间步的z
-            _ht = _h[:, :, t+1:, t]     # W维度，获取当前时间步的_h
-            h[:, :, t + dh + 1:, t + dw] = zt * _ht + (1 - zt) * h_1  # W维度，更新h
-        h = h.transpose(3, min_dim+2)   # 还原“维度数最小的维度，移动到4”
-        h = h[:, :, dh:, dw:]           # 截取有效部分的h
-        return self.flip(self.trans(h))  # 返回翻转后的h
+        h[..., :dh, :dw] = h0                           # 初始化h的前dh行和前dw列
+        t_num = min((H+dh-1)//dh , (W+dw-1)//dw  )      # 计算时间步数
+        ts = torch.arange(t_num+2)                      # 生成时间步列表
+        thws = torch.stack((ts*dh, ts*dw), dim=0)       # 生成宽高时间步列表
+        for ti in range(t_num):                         # 循环更新h隐状态
+            t = thws[:,ti:ti+3]                         # 获取当前时间步的宽高索引
+            h_1 =  h[..., t[0,0]:t[0,1], t[1,0]:-dw]    # H维度，获取当前时间步的h_1
+            zt =   z[..., t[0,0]:t[0,1], t[1,0]:   ]    # H维度，获取当前时间步的z
+            _ht = _h[..., t[0,0]:t[0,1], t[1,0]:   ]    # H维度，获取当前时间步的_h
+            h[..., t[0,1]:t[0,2], t[1,1]:] = zt * _ht + (1 - zt) * h_1  # H维度，更新h
+            h_1 =  h[..., t[0,1]:-dh, t[1,0]:t[1,1]]    # W维度，获取当前时间步的h_1
+            zt =   z[..., t[0,1]:   , t[1,0]:t[1,1]]    # W维度，获取当前时间步的z
+            _ht = _h[..., t[0,1]:   , t[1,0]:t[1,1]]    # W维度，获取当前时间步的_h
+            h[..., t[0,2]:, t[1,1]:t[1,2]] = zt * _ht + (1 - zt) * h_1  # W维度，更新h 
+        h = h[..., dh:, dw:]            # 截取有效部分的h（去掉初始的dh行和dw列）
+        return self.flip(h)  # 返回翻转后的h
 
 
 class GRUConv2d(nn.Module):
@@ -81,9 +84,9 @@ class GRUConv2d(nn.Module):
         super().__init__()
         if directions is None:
             if direction_num == 8:      # 8 方向更新
-                directions = [(1, 1), (1, -1), (-1, 1), (-1, -1), (1, 0), (-1, 0), (0, 1), (0, -1)]
+                directions = [(1, 2), (1, -1), (-1, 1), (-2, -1), (1, 0), (-2, 0), (0, 1), (0, -1)]
             elif direction_num == 4:    # 4 方向更新
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                directions = [(2, 0), (-3, 0), (0, 1), (0, -2)]
             else:
                 raise ValueError(f"direction_num must be 4 or 8, but got {direction_num}")
 
@@ -128,5 +131,7 @@ if __name__ == '__main__':
 
     from ptflops import get_model_complexity_info
 
-    macs, params = get_model_complexity_info(gru, (64, 64, 64), as_strings=True, print_per_layer_stat=True)
+    macs, params = get_model_complexity_info(gru, (64, 64, 64),
+                                             as_strings=True,
+                                             print_per_layer_stat=False)
     print('macs: ', macs, 'params: ', params)
