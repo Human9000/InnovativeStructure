@@ -89,8 +89,8 @@ class GRUConv2d(nn.Module):
                 directions = [(2, 0), (-3, 0), (0, 1), (0, -2)]
             else:
                 raise ValueError(f"direction_num must be 4 or 8, but got {direction_num}")
-
-        self.h0 = nn.ParameterList()    # 多方向初始隐状态
+        n,c = len(directions), out_channels  # 获取方向数和输出通道数 
+        self.h0 = nn.Parameter(torch.zeros(n, 1, c, 1, 1))    # 多方向初始隐状态
         self._h = nn.ModuleList()       # 多方向候选隐状态
         self.z = nn.ModuleList()        # 多方向更新门
         self.s = nn.ModuleList()        # 多方向选择门
@@ -102,7 +102,6 @@ class GRUConv2d(nn.Module):
 
         for dh, dw in directions:
             self.d.append(GRUParallelDirection2d(dh, dw))                                                    # 更新策略
-            self.h0.append(nn.Parameter(torch.zeros(1, out_channels, 1, 1,)))                                # 初始隐状态
             self._h.append(nn.Conv2d(out_channels, out_channels, 1, bias=bias))                              # 候选隐状态
             self.z.append(nn.Sequential(nn.Conv2d(out_channels, out_channels, 1, bias=bias), nn.Sigmoid()))  # 更新门
             self.s.append(nn.Sequential(nn.Conv2d(out_channels, out_channels, 1, bias=bias), nn.Sigmoid()))  # 选择门
