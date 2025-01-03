@@ -1,0 +1,32 @@
+
+Epoch [1/10], Step [100/235], Loss: 1.0816
+Epoch [1/10], Step [200/235], Loss: 0.2847
+Epoch [1/10], Test Accuracy: 93.88 %
+Epoch [2/10], Step [100/235], Loss: 0.1745
+Epoch [2/10], Step [200/235], Loss: 0.1403
+Epoch [2/10], Test Accuracy: 96.36 %
+Epoch [3/10], Step [100/235], Loss: 0.1185
+Epoch [3/10], Step [200/235], Loss: 0.1059
+Epoch [3/10], Test Accuracy: 96.93 %
+Epoch [4/10], Step [100/235], Loss: 0.0805
+Epoch [4/10], Step [200/235], Loss: 0.0825
+Epoch [4/10], Test Accuracy: 97.81 %
+Epoch [5/10], Step [100/235], Loss: 0.0647
+Epoch [5/10], Step [200/235], Loss: 0.0739
+Epoch [5/10], Test Accuracy: 97.70 %
+Epoch [6/10], Step [100/235], Loss: 0.0600
+Epoch [6/10], Step [200/235], Loss: 0.0619
+Epoch [6/10], Test Accuracy: 97.46 %
+Epoch [7/10], Step [100/235], Loss: 0.0515
+Epoch [7/10], Step [200/235], Loss: 0.0553
+Epoch [7/10], Test Accuracy: 98.04 %
+Epoch [8/10], Step [100/235], Loss: 0.0481
+Epoch [8/10], Step [200/235], Loss: 0.0465
+Epoch [8/10], Test Accuracy: 98.26 %
+Epoch [9/10], Step [100/235], Loss: 0.0343
+Epoch [9/10], Step [200/235], Loss: 0.0453
+Epoch [9/10], Test Accuracy: 97.98 %
+Epoch [10/10], Step [100/235], Loss: 0.0354
+Epoch [10/10], Step [200/235], Loss: 0.0349
+Epoch [10/10], Test Accuracy: 97.84 %
+Finished Training
