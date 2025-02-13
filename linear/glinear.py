@@ -1,4 +1,9 @@
 
+from torch import Tensor
+from torch.nn.parameter import Parameter
+from torch.nn import init
+import math
+
 class GLinear(nn.Module):
     def __init__(self, 
                 in_features: int, 
