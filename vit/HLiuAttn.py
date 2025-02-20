@@ -67,7 +67,7 @@ class TransformerEncoderLayer(nn.Module):
 
 # 多头自注意力
 class MultiHeadSelfAttention(nn.Module):
-    def __init__(self, embed_dim, num_heads, dropout, HLiu = False):
+    def __init__(self, embed_dim, num_heads, dropout, HLiu = True):
         super(MultiHeadSelfAttention, self).__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -83,38 +83,45 @@ class MultiHeadSelfAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1) 
 
         # 同向和反向的自适应调节参数
-        self.la = torch.nn.Parameter(torch.tensor(0.5))  # 可学习参数 alpha，用于调整同向和反向注意力权重。
+        self.la = torch.nn.Parameter(torch.tensor(0.), requires_grad=True)  # 可学习参数 alpha，用于调整同向和反向注意力权重。
 
         self.HLiu = HLiu
 
+        self.win_size = 100
+
     def attn_neg_pos(self, q, k, v): 
+        k = k/np.sqrt(self.head_dim)# 缩放值向量
+
         q_neg = F.softplus(-q)  # 查询向量的负向特征
         q_pos = F.softplus(q)   # 查询向量的正向特征
         k_neg = F.softplus(-k).transpose(-1,-2)  # 键向量的负向特征
-        k_pos = F.softplus(k).transpose(-1,-2)   # 键向量的正向特征
-
-        # 2. 缩放值向量：使用缩放因子 sf 调整值向量的尺度。
-        sum_sf = torch.ones((k.shape[-2], 1), device=k.device) /np.sqrt(self.head_dim) # 创建一个缩放张量
-        scaled_v = v /np.sqrt(self.head_dim) # 缩放值向量
-
-        # 3. 计算加权值：分别计算正向和负向键向量与值向量的加权结果。
-        wv_neg = k_neg @ scaled_v   # 负向键向量加权值 D N @ N D -> D D
-        wv_pos = k_pos @ scaled_v   # 正向键向量加权值 D N @ N D -> D D
-        aw_neg = k_neg @ sum_sf     # 计算负向键向量的注意力权重 D N @ N 1 -> D 1
-        aw_pos = k_pos @ sum_sf     # 计算正向键向量的注意力权重 D N @ N 1 -> D 1
-
-        # 4. 同向注意力：计算 query 和 key 方向一致的注意力结果。
-        num_same = (q_neg @ wv_neg + q_pos @ wv_pos + 1e-12) # 同向注意力分子 N D @ D D -> N D
-        den_same = (q_neg @ aw_neg + q_pos @ aw_pos + 1e-12)  # 同向注意力分母 N D @ D 1 -> N 1
-        res_same = num_same / den_same  # 同向注意力结果
-
-        # 5. 异向注意力：计算 query 和 key 方向相反的注意力结果。
-        num_diff = (q_neg @ wv_pos + q_pos @ wv_neg + 1e-12) # 异向注意力分子 N D @ D D -> N D
-        den_diff = (q_neg @ aw_pos + q_pos @ aw_neg + 1e-12)  # 异向注意力分母  N D @ D 1 -> N 1
-        res_diff = num_diff / den_diff # 异向注意力结果
+        k_pos = F.softplus(k).transpose(-1,-2)   # 键向量的正向特征 
+         
+        sum_tensor = torch.ones((k.shape[-2], 1), device=k.device)   # 创建一个求和张量 
+        N,D = q.shape[-2:] # 获取查询向量的维度
+        # print(N,D)
+        aw_neg = k_neg @ sum_tensor     # 计算负向键向量的注意力权重 D N @ N 1 -> D 1
+        aw_pos = k_pos @ sum_tensor     # 计算正向键向量的注意力权重 D N @ N 1 -> D 1
         
-        # 6. 动态加权：使用可学习参数 alpha 动态加权同向和反向注意力结果。
-        la = torch.clamp(self.la, 0, 1)
+        den_same = (q_neg @ aw_neg + q_pos @ aw_pos + 1e-12)  # 同向注意力分母 N D @ D 1 -> N 1
+        den_diff = (q_neg @ aw_pos + q_pos @ aw_neg + 1e-12)  # 异向注意力分母  N D @ D 1 -> N 1
+        
+        # 寻找最快的计算方式。N大的时候，先计算kv，再计算q; N小的时候，先计算kv，再计算q。时间复杂度为 (O(N*D*min(N,D)) 。
+        if N > D : # 先计算kv，再计算q
+            wv_neg = k_neg @ v   # 负向键向量加权值 D N @ N D -> D D
+            wv_pos = k_pos @ v   # 正向键向量加权值 D N @ N D -> D D  
+            num_same = (q_neg @ wv_neg + q_pos @ wv_pos + 1e-12) # 同向注意力分子 N D @ D D -> N D  
+            num_diff = (q_neg @ wv_pos + q_pos @ wv_neg + 1e-12) # 异向注意力分子 N D @ D D -> N D 
+        else: # 先计算kv，再计算q 
+            attn_same = q_neg @ k_neg + q_pos @ k_pos     
+            attn_diff = q_pos @ k_neg + q_pos @ k_neg      
+            num_same = (attn_same @ v + 1e-12)  
+            num_diff = (attn_diff@v + 1e-12)  
+
+        res_same = num_same / den_same  # 同向注意力结果
+        res_diff = num_diff / den_diff # 异向注意力结果
+ 
+        la = torch.sigmoid(self.la * 10)
         return res_same * la - res_diff * (1 - la)
 
 
@@ -129,11 +136,21 @@ class MultiHeadSelfAttention(nn.Module):
 
     def forward(self, x):
         batch_size = x.size(0)
-
+        n1 = x.shape[1] 
         q = self.Wq(x).view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2) # (batch, num_heads, num_patches, head_dim)
         k = self.Wk(x).view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2) # (batch, num_heads, num_patches, head_dim)
         v = self.Wv(x).view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2) # (batch, num_heads, num_patches, head_dim)
  
+        if n1 < self.win_size: # 流处理
+            loss_n = self.win_size - n1
+            q = torch.cat([self.q[:,-loss_n:], q], dim=1)
+            k = torch.cat([self.k[:,-loss_n:], k], dim=1)
+            v = torch.cat([self.v[:,-loss_n:], v], dim=1)
+            
+        self.q = q
+        self.k = k
+        self.v = v
+
         if self.HLiu:
             out = self.attn_neg_pos(q,k,v) # 线性的双向注意力机制
         else:
@@ -168,13 +185,13 @@ image_size = 28
 patch_size = 4
 num_classes = 10
 embed_dim = 128
-num_heads = 16
+num_heads = 32
 num_layers = 6
 mlp_dim = 256
 dropout = 0.1
-batch_size = 256
+batch_size = 128
 learning_rate = 0.001
-num_epochs = 10
+num_epochs = 20
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 加载 MNIST 数据集
