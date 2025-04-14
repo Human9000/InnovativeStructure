@@ -6,7 +6,7 @@ from torch.nn import Module
 
 
 class ViGBlock(Module):
-    def __init__(self, channle, patch_size=1, dim=96, head=2, BiGRU=False):
+    def __init__(self, channle, patch_size=1, dim=96, head=2, Bi=False):
         super().__init__()
 
         # 初始化ViGBlock类，设置输入通道数cin，输出通道数cout，维度dim，补丁大小patch_size，头数head，是否使用双向GRU BiGRU
@@ -15,9 +15,9 @@ class ViGBlock(Module):
 
         # 初始化行和列的正向和反向GRU
         self.r_gru_p = minGRU(dim//self.head)  # 行正向GRU
-        self.r_gru_n = minGRU(dim//self.head) if BiGRU else None  # 行反向GRU，如果BiGRU为True则初始化，否则为None
+        self.r_gru_n = minGRU(dim//self.head) if Bi else None  # 行反向GRU，如果BiGRU为True则初始化，否则为None
         self.c_gru_p = minGRU(dim//self.head)  # 列正向GRU
-        self.c_gru_n = minGRU(dim//self.head) if BiGRU else None  # 列反向GRU，如果BiGRU为True则初始化，否则为None
+        self.c_gru_n = minGRU(dim//self.head) if Bi else None  # 列反向GRU，如果BiGRU为True则初始化，否则为None
  
         self.r_patch_embadding = nn.Conv2d(channle, dim, kernel_size=patch_size*2 + 1, stride=patch_size, padding=patch_size)
         self.c_patch_embadding = nn.Conv2d(channle, dim, kernel_size=patch_size*2 + 1, stride=patch_size, padding=patch_size)
@@ -51,3 +51,23 @@ class ViGBlock(Module):
         # ======= 残差融合 ===================== 
         y = r + c + x
         return y
+    
+    
+
+if __name__ == '__main__': # 测试ViMBlock类
+    x = torch.randn(32, 1, 256, 256).cuda()
+    model = ViGBlock(channle=1,
+                    dim=96,
+                    head=4,
+                    patch_size=8,
+                    Bi=True,
+                    ).cuda()
+ 
+    opt = torch.optim.Adam(model.parameters(), lr=1e-4)
+    model.eval()
+    with torch.no_grad():
+        for i in range(100):
+            out = model(x)
+            opt.zero_grad()
+            opt.step()
+            print("Output shape:", out.shape)
