@@ -23,38 +23,48 @@ class ViGBlock(Module):
         self.c_patch_embadding = nn.Conv2d(channle, dim, kernel_size=patch_size*2 + 1, stride=patch_size, padding=patch_size)
         self.r_unpatch_embadding = nn.ConvTranspose2d(dim, channle, kernel_size=patch_size, stride=patch_size)
         self.c_unpatch_embadding = nn.ConvTranspose2d(dim, channle, kernel_size=patch_size, stride=patch_size)
+        self.r_pe = nn.Conv2d(dim, dim, kernel_size=3, stride=1, padding=1, groups=channle) # 位置编码
+        self.c_pe = nn.Conv2d(dim, dim, kernel_size=3, stride=1, padding=1, groups=channle) # 位置编码
 
     def forward(self, x):
-        # ======== 行列分别patch_embadding============  
-        r =self.r_patch_embadding(x).unflatten(1, (self.head, -1)).permute(0, 1, 4, 3, 2)
-        c =self.c_patch_embadding(x).unflatten(1, (self.head, -1)).permute(0, 1, 3, 4, 2)
+        #  行/列 patch_embadding   
+        r = self.r_patch_embadding(x)
+        c = self.c_patch_embadding(x)
+
+        #  行/列 位置编码 
+        r_pe = self.r_pe(r)
+        c_pe = self.c_pe(c)
+
+        #  行/列 调整形状   
+        r = r.unflatten(1, (self.head, -1)).permute(0, 1, 4, 3, 2)
+        c = c.unflatten(1, (self.head, -1)).permute(0, 1, 3, 4, 2) 
         rs3 = r.shape[:3]
         cs3 = c.shape[:3]
         c = c.flatten(0, 2) # (bhr, c, d//h)
         r = r.flatten(0, 2) # (bhc, r, d//h)
 
- 
-        # ======= 行列正向GRU 和 逆向GRu =======
-        r = self.r_gru_p(r)
-        c = self.c_gru_p(c)
-
-        if self.r_gru_n is not None:  # 逆向 
+        #  行/列 单向/双向 
+        if self.r_gru_n is None:  # 单向 
+            r = self.r_gru_p(r)
+            c = self.c_gru_p(c)
+        else: # 双向
             r = self.r_gru_p(r) + self.r_gru_n(r.flip(dims=[-1])).flip(dims=[-1])
-            c = self.c_gru_p(c) + self.c_gru_n(c.flip(dims=[-1])).flip(dims=[-1])
+            c = self.c_gru_p(c) + self.c_gru_n(c.flip(dims=[-1])).flip(dims=[-1]) 
 
-        # ======= 行/列 unpatch_embadding=======
+        #  行/列 调整形状
         r = r.unflatten(0, rs3).permute(0, 1, 4, 3, 2).flatten(1,2) # (b, h*d//h, r, c)
         c = c.unflatten(0, cs3).permute(0, 1, 4, 2, 3).flatten(1,2) # (b, h*d//h, r, c)
-        r = self.r_unpatch_embadding(r)  # 行 (b, c, H, W)
-        c = self.c_unpatch_embadding(c)  # 列 (b, c, H, W)
 
-        # ======= 残差融合 ===================== 
-        y = r + c + x
+        #  行/列 融合位置编码 + unpatch_embadding
+        r = self.r_unpatch_embadding(r + r_pe)  # 行 (b, c, H, W)
+        c = self.c_unpatch_embadding(c + c_pe)  # 列 (b, c, H, W)
+ 
+        y = r + c
         return y
     
     
 
-if __name__ == '__main__': # 测试ViMBlock类
+if __name__ == '__main__': # 测试ViGBlock类
     x = torch.randn(32, 1, 256, 256).cuda()
     model = ViGBlock(channle=1,
                     dim=96,
