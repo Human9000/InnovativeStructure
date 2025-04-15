@@ -20,32 +20,44 @@ class ViMBlock(Module):
         self.c_patch_embadding = nn.Conv2d(channle, dim, kernel_size=patch_size*2 + 1, stride=patch_size, padding=patch_size)
         self.r_unpatch_embadding = nn.ConvTranspose2d(dim, channle, kernel_size=patch_size, stride=patch_size)
         self.c_unpatch_embadding = nn.ConvTranspose2d(dim, channle, kernel_size=patch_size, stride=patch_size)
+        
+        self.r_pe = nn.Conv2d(dim, dim, kernel_size=3, stride=1, padding=1, groups=channle) # 位置编码
+        self.c_pe = nn.Conv2d(dim, dim, kernel_size=3, stride=1, padding=1, groups=channle) # 位置编码
 
     def forward(self, x):
         # ======== 行/列 patch_embadding ============  
-        r =self.r_patch_embadding(x).permute(0, 3, 2, 1)
-        c =self.c_patch_embadding(x).permute(0, 2, 3, 1)
+        
+        r = self.r_patch_embadding(x)
+        c = self.c_patch_embadding(x)
+
+        #  行/列 位置编码 
+        r_pe = self.r_pe(r)
+        c_pe = self.c_pe(c)
+
+        #  行/列 调整形状   
+        r = r.permute(0, 3, 2, 1)
+        c = c.permute(0, 2, 3, 1)
         rs3 = r.shape[:2]
         cs3 = c.shape[:2]
         c = c.flatten(0, 1) # (br, c, d)
         r = r.flatten(0, 1) # (bc, r, d)
  
         # ======= 行列正向 和 逆向=======
-        r = self.r_p(r)
-        c = self.c_p(c)
-
-        if self.r_n is not None:  # 逆向 
-            r = r + self.r_n(r.flip(dims=[-1])).flip(dims=[-1])
-            c = c + self.c_n(c.flip(dims=[-1])).flip(dims=[-1])
+        if self.r_n is None:  # 单向 
+            r = self.r_p(r)
+            c = self.c_p(c) 
+        else:  # 双向
+            r = self.r_p(r) + self.r_n(r.flip(dims=[-1])).flip(dims=[-1])
+            c = self.c_p(c) + self.c_n(c.flip(dims=[-1])).flip(dims=[-1])
 
         # ======= 行/列 unpatch_embadding=======
         r = r.unflatten(0, rs3).permute(0, 3, 1, 2) # (b, d, r, c)
         c = c.unflatten(0, cs3).permute(0, 3, 2, 1) # (b, d, r, c)
-        r = self.r_unpatch_embadding(r)  # 行 (b, c, H, W)
-        c = self.c_unpatch_embadding(c)  # 列 (b, c, H, W)
+        r = self.r_unpatch_embadding(r + r_pe)  # 行 (b, c, H, W)
+        c = self.c_unpatch_embadding(c + c_pe)  # 列 (b, c, H, W)
 
-        # ======= 残差融合 ===================== 
-        y = r + c + x
+        # ======= 残差融合 ===============+ x====== 
+        y = r + c 
         return y
 
 if __name__ == '__main__': # 测试ViMBlock类
