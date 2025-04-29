@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "xlocale": "cpp",
+        "xstring": "cpp",
+        "xutility": "c",
+        "layer.h": "c",
+        "opt.h": "c"
+    }
+}
