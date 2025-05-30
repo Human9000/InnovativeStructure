@@ -1,4 +1,4 @@
-ToolSet: 11.0 w64 (local)@D:\Program Files\JetBrains\CLion 2024.3.4\bin\mingw
+ToolSet: 17.0 (local)@C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools
 Ninja: 1.12.1@D:\Program Files\JetBrains\CLion 2024.3.4\bin\ninja\win\x64\ninja.exe
 Options: 
 
