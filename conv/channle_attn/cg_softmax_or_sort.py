@@ -83,6 +83,17 @@ class CGTopK(AddRes):
         )
 
 
+class CGBlock(nn.Module):
+    def __init__(self,   t_k=1) -> None:
+        super().__init__()
+        self.cgtopk = CGTopK(t_k)
+        self.cgsoftmax = CGSoftmax()
+        self.r = nn.Parameter(torch.tensor((1.0, 1.0)), requires_grad=True)
+        
+    def forward(self, x):
+        rt,rs = torch.softmax(self.r, dim=0)
+        return self.cgtopk(x) * rt + self.cgsoftmax(x) * rs
+
 # 示例使用
 if __name__ == "__main__":
     # 定义输入张量大小：1个样本，8通道，10x10空间尺寸
