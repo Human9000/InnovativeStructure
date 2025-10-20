@@ -8,7 +8,7 @@ MatF32 conv1d_f32_i8(MatF32 in_data_mat, ConvI8 params) {
     int length = in_data_mat.length;
     int in_channels = in_data_mat.channels;
     int out_channels = params.out_channels;
-    i8 *weight = params.weight;
+    i32 *weight = params.weight;
     int kernel = params.kernel;
     int stride = params.stride;
     int out_length = (length - kernel + 1) / stride;
@@ -91,7 +91,7 @@ void printCI8(const char *name, ConvI8 mat) {
            mat.in_channels
     ); // 打印矩阵维度
     int l, c;
-    i8 *w = mat.weight;
+    i32 *w = mat.weight;
     for (l = 0; l < mat.out_channels; l++) {
         for (c = 0; c < mat.kernel * mat.in_channels; c++, w++)
             printf("%.7f\t", *w / 64.0); // 打印矩阵元素，保留两位小数
@@ -170,7 +170,7 @@ int conv1d(i32 *data, b8 *weight, i32 *bias, i32 *out, int length, int in_channe
 	return res;
 }
 
-int conv1d(i32 *data, i8 *weight, i32 *bias, i32 *out, int length, int in_channels, int out_channels, int kernel, int stride)
+int conv1d(i32 *data, i32 *weight, i32 *bias, i32 *out, int length, int in_channels, int out_channels, int kernel, int stride)
 {
 	int res = (length - kernel + 1) / stride;
 	if (res < 1)

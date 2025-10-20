@@ -13,6 +13,7 @@ add_executable(Q8_6
         h/opt.h
         h/opt_ex.h
         h/tool.h
+        hv2/opt.h
 #        test/sw_seg_20_12_500_100.c
 #        test/net_sw.c
 #        net_sw.c

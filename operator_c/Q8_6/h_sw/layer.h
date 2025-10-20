@@ -12,7 +12,7 @@ typedef struct {
 } Buffer;
 
 typedef struct {
-    i8 *weight;
+    i32 *weight;
     int in_channels;
     int out_channels;
     int kernel;
@@ -82,7 +82,7 @@ void conv1d_i32_i8(Buffer in, ConvI8 p, Buffer out) {
     int length = in.length;
     int in_channels = in.channels;
     int out_channels = p.out_channels;
-    i8 *weight = p.weight;
+    i32 *weight = p.weight;
     int kernel = p.kernel;
     int stride = p.stride;
     int out_length = (length - kernel) / stride + 1;

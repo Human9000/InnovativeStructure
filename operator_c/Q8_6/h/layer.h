@@ -6,7 +6,7 @@
 
 
 typedef struct {
-    i8 *weight;
+    i32 *weight;
     int in_channels;
     int out_channels;
     int kernel;
@@ -21,7 +21,7 @@ typedef struct {
     int stride;
 } ConvB8;
 
-ConvI8 CI8(i8 *w, int cin, int cout, int k, int s) {
+ConvI8 CI8(i32 *w, int cin, int cout, int k, int s) {
     ConvI8 res = {w, cin, cout, k, s};
     return res;
 }
@@ -71,7 +71,7 @@ MatI32 conv1d_i32_i8(MatI32 in, ConvI8 p) {
     int length = in.length;
     int in_channels = in.channels;
     int out_channels = p.out_channels;
-    i8 *weight = p.weight;
+    i32 *weight = p.weight;
     int kernel = p.kernel;
     int stride = p.stride;
     int out_length = (length - kernel) / stride + 1;

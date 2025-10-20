@@ -4,11 +4,11 @@
 #include <stdio.h>
 #include <stdint.h>
 typedef uint8_t b8;	 // 定义无符号8位类型别名
-typedef int8_t i8;	 // 定义有符号8位整形
-typedef int32_t i32; // 定义有符号32位整形
+typedef int8_t int8_t;	 // 定义有符号8位整形
+typedef int32_t int32_t; // 定义有符号32位整形
 typedef int64_t i64; // 定义有符号64位整形
 typedef float f32;	 // 定义有符号32位整形
-typedef uint8_t bool_; // 定义无符号8位整形
+typedef uint8_t uint8_t; // 定义无符号8位整形
 #define true 1
 #define false 0
 
@@ -76,7 +76,7 @@ void i32_2_f32(i32 *in, f32 *out, int length)
 	}
 }
 
-void i8_2_f32(i8 *in, f32 *out, int length)
+void i8_2_f32(i32 *in, f32 *out, int length)
 {
 	for (int i = 0; i < length; i++, in++, out++)
 	{
@@ -108,7 +108,7 @@ MatI32 F32_2_I32(MatF32 imat) {
 }
 
 // i32 和 i8 的内积函数
-f32 f32_i8_vec_in_prod(f32 *data, i8 *weight, int n)
+f32 f32_i8_vec_in_prod(f32 *data, i32 *weight, int n)
 {
 	f32 res = 0;								  // 初始化结果为0, 结果要除以64,解析成(-1,1)的8字节数
 	for (int i = 0; i < n; i++, data++, weight++) // 遍历向量元素
@@ -118,7 +118,7 @@ f32 f32_i8_vec_in_prod(f32 *data, i8 *weight, int n)
 
 // 浮点矩阵 和 bit 矩阵做 矩阵乘法 得到一个新的矩阵，支持转置输出
 // 浮点矩阵与浮点矩阵的矩阵乘法函数
-void f32_i8_mul(f32 *data, i8 *weight, f32 *out, int m, int k, int n, bool_ Transpose)
+void f32_i8_mul(f32 *data, i32 *weight, f32 *out, int m, int k, int n, bool_ Transpose)
 {
 	if (Transpose)
 	{ // 如果需要转置输出
@@ -133,7 +133,7 @@ void f32_i8_mul(f32 *data, i8 *weight, f32 *out, int m, int k, int n, bool_ Tran
 	{ // 不转置输出
 		for (int i = 0; i < m; i++, data += k)
 		{ // 遍历矩阵A的行
-			i8 *w = weight;
+			i32 *w = weight;
 			for (int j = 0; j < n; j++, out++, w += k) // 遍历矩阵B的行
 				*out = f32_i8_vec_in_prod(data, w, k); // 计算内积并存储到输出矩阵
 		}
@@ -141,7 +141,7 @@ void f32_i8_mul(f32 *data, i8 *weight, f32 *out, int m, int k, int n, bool_ Tran
 }
 
 // i32 和 i8 的内积函数
-i32 i32_i8_vec_in_prod(i32 *data, i8 *weight, int n)
+i32 i32_i8_vec_in_prod(i32 *data, i32 *weight, int n)
 {
 	int res = 0;								  // 初始化结果为0, 结果要除以64,解析成(-1,1)的8字节数
 //    printMI32("in:",I32(data, 1, n));
@@ -154,7 +154,7 @@ i32 i32_i8_vec_in_prod(i32 *data, i8 *weight, int n)
 
 // 浮点矩阵 和 bit 矩阵做 矩阵乘法 得到一个新的矩阵，支持转置输出
 // 浮点矩阵与浮点矩阵的矩阵乘法函数
-void i32_i8_mul(i32 *data, i8 *weight, i32 *out, int m, int k, int n, bool_ Transpose  )
+void i32_i8_mul(i32 *data, i32 *weight, i32 *out, int m, int k, int n, bool_ Transpose  )
 {
 	if (Transpose)
 	{ // 如果需要转置输出
@@ -168,7 +168,7 @@ void i32_i8_mul(i32 *data, i8 *weight, i32 *out, int m, int k, int n, bool_ Tran
 	{ // 不转置输出
 		for (int i = 0; i < m; i++, data += k)
 		{ // 遍历矩阵A的行
-			i8 *w = weight;
+			i32 *w = weight;
 			for (int j = 0; j < n; j++, out++, w += k) // 遍历矩阵B的行
             {
                 *out = i32_i8_vec_in_prod(data, w, k); // 计算内积并存储到输出矩阵

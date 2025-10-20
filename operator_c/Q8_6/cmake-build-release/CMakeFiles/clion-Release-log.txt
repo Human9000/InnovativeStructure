@@ -1,17 +1,4 @@
 "D:\Program Files\JetBrains\CLion 2024.3.4\bin\cmake\win\x64\bin\cmake.exe" -DCMAKE_BUILD_TYPE=Release "-DCMAKE_MAKE_PROGRAM=D:/Program Files/JetBrains/CLion 2024.3.4/bin/ninja/win/x64/ninja.exe" -G Ninja -DPython_EXECUTABLE=D:/ProgramData/miniconda3/envs/tch2/python.exe -DPython3_EXECUTABLE=D:/ProgramData/miniconda3/envs/tch2/python.exe -S C:\Users\Administrator\Documents\GitHub\InnovativeStructure\operator_c\Q8_6 -B C:\Users\Administrator\Documents\GitHub\InnovativeStructure\operator_c\Q8_6\cmake-build-release
--- The C compiler identification is MSVC 19.44.35207.1
--- Detecting C compiler ABI info
--- Detecting C compiler ABI info - done
--- Check for working C compiler: C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe - skipped
--- Detecting C compile features
--- Detecting C compile features - done
--- Configuring done (0.9s)
+-- Configuring done (0.0s)
 -- Generating done (0.0s)
-CMake Warning:
-  Manually-specified variables were not used by the project:
-
-    Python3_EXECUTABLE
-    Python_EXECUTABLE
-
-
 -- Build files have been written to: C:/Users/Administrator/Documents/GitHub/InnovativeStructure/operator_c/Q8_6/cmake-build-release

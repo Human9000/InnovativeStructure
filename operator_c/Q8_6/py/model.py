@@ -1,4 +1,5 @@
 from matplotlib.pyplot import sca
+from starlette.datastructures import Address
 from torch._prims_common import Dim
 from torchinfo import summary
 import torch
@@ -86,6 +87,40 @@ class QConv1d(nn.Conv1d):
         return y
 
 
+class Conv1dI32B8(QConv1d):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=False):
+        super(Conv1dI32B8, self).__init__(in_channels, out_channels, kernel_size, stride,
+                                          padding, dilation, groups, bias, True)
+
+class Conv1dI32I8(QConv1d):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=False):
+        super(Conv1dI32I8, self).__init__(in_channels, out_channels, kernel_size, stride,
+                                          padding, dilation, groups, bias, False)
+
+
+    def forward(self, x):
+        b = self.bias
+        w = self.weight
+
+        x = LBitTanh.apply(x)
+        b = LBitTanh.apply(b)
+
+        if self.b_weight:
+            w = Binarize.apply(w)
+        else:
+            w = LBitTanh.apply(w)
+
+        if self.mem != None:
+            x = torch.cat([self.mem, x], dim=-1)
+
+        self.mem = x[..., x.shape[-1] - self.mem_length:]
+
+        y = F.conv1d(x, w, b, self.stride, self.padding, self.dilation, self.groups)
+
+        (LOG) and print("QConv", list(x.shape[1:])[::-1], x.shape[1] * x.shape[2], list(y.shape[1:])[::-1], )
+        y = LBit.apply(y)
+        return y
+
 class Upsample(nn.Upsample):
     def __init__(self, scale_factor=2, mode='linear'):
         super(Upsample, self).__init__(scale_factor=scale_factor, mode=mode)
@@ -106,7 +141,7 @@ class Upsample(nn.Upsample):
         return LBit.apply(y)
 
 
-class AvgPool1d(nn.AvgPool1d):
+class AvgPool1dI32(nn.AvgPool1d):
     def __init__(self, kernel_size, stride):
         super().__init__(kernel_size, stride)
         self.mem = None
@@ -132,33 +167,33 @@ class ECGSegMCULBit(torch.nn.Module):
         softmax = SoftMax
 
         self.down = nn.Sequential(
-            AvgPool1d(4, stride=4),
-            QConv1d(12, 4, 1, 1, b_weight=False),
-            QConv1d(4, 4, 3, 1, b_weight=False),
-            QConv1d(4, 64, 3, 1, ),
-            AvgPool1d(5, stride=5),
+            AvgPool1dI32(4, stride=4),
+            Conv1dI32I8(12, 4, 1, 1 ),
+            Conv1dI32I8(4, 4, 3, 1 ),
+            Conv1dI32B8(4, 64, 3, 1, ),
+            AvgPool1dI32(5, stride=5),
             softmax(dim=1),
-            QConv1d(64, 4, 1, 1, ),
-            QConv1d(4, 4, 3, 1, b_weight=False),
-            QConv1d(4, 64, 3, 1, ),
-            AvgPool1d(3, stride=1),
+            Conv1dI32B8(64, 4, 1, 1, ),
+            Conv1dI32I8(4, 4, 3, 1,),
+            Conv1dI32B8(4, 64, 3, 1, ),
+            AvgPool1dI32(3, stride=1),
             softmax(dim=1),
 
-            QConv1d(64, 4, 1, ),
-            QConv1d(4, 4, 3, b_weight=False),
-            QConv1d(4, 64, 3),
-            AvgPool1d(5, stride=1),
+            Conv1dI32B8(64, 4, 1, ),
+            Conv1dI32I8(4, 4, 3,),
+            Conv1dI32B8(4, 64, 3),
+            AvgPool1dI32(5, stride=1),
             softmax(dim=1),
         )
         self.up = nn.Sequential(
             Upsample(5),
-            QConv1d(64, 8, 1),
-            QConv1d(8, 8, 1, b_weight=False),
-            QConv1d(8, 64, 1),
+            Conv1dI32B8(64, 8, 1),
+            Conv1dI32I8(8, 8, 1),
+            Conv1dI32B8(8, 64, 1),
             softmax(dim=1),
             Upsample(4),
-            QConv1d(64, 8, 1),
-            QConv1d(8, 4, 1, b_weight=False),
+            Conv1dI32B8(64, 8, 1),
+            Conv1dI32I8(8, 4, 1),
         )
 
     def forward(self, x):

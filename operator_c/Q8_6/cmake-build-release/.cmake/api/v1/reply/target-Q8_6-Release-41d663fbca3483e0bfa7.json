@@ -76,7 +76,7 @@
 			},
 			"sourceIndexes" : 
 			[
-				6
+				7
 			]
 		}
 	],
@@ -118,14 +118,15 @@
 				2,
 				3,
 				4,
-				5
+				5,
+				6
 			]
 		},
 		{
 			"name" : "Source Files",
 			"sourceIndexes" : 
 			[
-				6
+				7
 			]
 		}
 	],
@@ -159,6 +160,11 @@
 		{
 			"backtrace" : 1,
 			"path" : "h/tool.h",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "hv2/opt.h",
 			"sourceGroupIndex" : 0
 		},
 		{
