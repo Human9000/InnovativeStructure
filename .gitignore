@@ -1,0 +1,7 @@
+*.tar.gz
+RFS/data
+*cmake-build-debug
+*cmake-build-release
+*.idea
+data
+*.pth
